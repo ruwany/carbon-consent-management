@@ -47,10 +47,13 @@ import org.wso2.carbon.consent.mgt.core.util.ConsentConfigParser;
 import org.wso2.carbon.consent.mgt.core.util.ConsentUtils;
 import org.wso2.carbon.context.PrivilegedCarbonContext;
 import org.wso2.carbon.core.util.KeyStoreManager;
+import org.wso2.carbon.identity.base.IdentityException;
+import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
 import org.wso2.carbon.user.core.service.RealmService;
 import org.wso2.carbon.utils.multitenancy.MultitenantConstants;
 import org.wso2.carbon.utils.multitenancy.MultitenantUtils;
 
+import javax.cache.Cache;
 import java.security.interfaces.RSAPublicKey;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -846,22 +849,45 @@ public class ConsentManagerImpl implements ConsentManager {
 
     private String getPublicKey(String tenantDomain) throws ConsentManagementException {
 
-        RSAPublicKey publicKey;
         int tenantId = ConsentUtils.getTenantId(realmService, tenantDomain);
+
         try {
-            KeyStoreManager keyStoreManager = KeyStoreManager.getInstance(tenantId);
-            if (isNotSuperTenant(tenantDomain)) {
-                String jksName = getJKSName(tenantDomain);
-                publicKey = getPublicKey(tenantDomain, keyStoreManager, jksName);
-            } else {
-                publicKey = (RSAPublicKey) keyStoreManager.getDefaultPublicKey();
+            IdentityTenantUtil.initializeRegistry(tenantId, tenantDomain);
+
+            try {
+                PrivilegedCarbonContext.startTenantFlow();
+                PrivilegedCarbonContext carbonContext = PrivilegedCarbonContext
+                        .getThreadLocalCarbonContext();
+                carbonContext.setTenantId(tenantId);
+                carbonContext.setTenantDomain(tenantDomain);
+
+                RSAPublicKey publicKey;
+                try {
+                    KeyStoreManager keyStoreManager = KeyStoreManager.getInstance(tenantId);
+                    if (isNotSuperTenant(tenantDomain)) {
+                        String jksName = getJKSName(tenantDomain);
+                        publicKey = getPublicKey(tenantDomain, keyStoreManager, jksName);
+                    } else {
+                        publicKey = (RSAPublicKey) keyStoreManager.getDefaultPublicKey();
+                    }
+
+                    byte[] data = publicKey.getEncoded();
+                    return Base64.encode(data);
+                } catch (Exception e) {
+                    throw handleServerException(ERROR_CODE_GETTING_PUBLIC_CERT, tenantDomain);
+                }
+
+
+
+            } finally {
+                PrivilegedCarbonContext.endTenantFlow();
             }
 
-            byte[] data = publicKey.getEncoded();
-            return Base64.encode(data);
-        } catch (Exception e) {
-            throw handleServerException(ERROR_CODE_GETTING_PUBLIC_CERT, tenantDomain);
+
+        } catch (IdentityException e) {
+            throw new ConsentManagementException(e);
         }
+
     }
 
     private RSAPublicKey getPublicKey(String tenantDomain, KeyStoreManager keyStoreManager, String jksName) throws

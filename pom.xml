@@ -216,6 +216,11 @@
                 <artifactId>jackson-annotations</artifactId>
                 <version>${fasterxml.jackson.version}</version>
             </dependency>
+            <dependency>
+                <groupId>org.wso2.carbon.identity.framework</groupId>
+                <artifactId>org.wso2.carbon.identity.core</artifactId>
+                <version>${identity.framework.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -379,5 +384,6 @@
         <orbit.version.h2.engine>1.2.140.wso2v3</orbit.version.h2.engine>
 
         <org.wso2.carbon.database.utils.version>2.0.6</org.wso2.carbon.database.utils.version>
+        <identity.framework.version>5.11.148</identity.framework.version>
     </properties>
 </project>
